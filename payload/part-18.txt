@@ -375,7 +375,8 @@ window.addEventListener('message',e=>{
    player.style.visibility='visible';
    memeStarted=true;
    if(memeStartGuard){clearTimeout(memeStartGuard);memeStartGuard=null}
-   // Fallback to an internal timer if onCurrentTime is throttled by the browser.
+   if(memeFallback){clearTimeout(memeFallback);memeFallback=null}
+   // Once playback has begun, let the clip's own cutoff control the duration.
    memeCutoff=setTimeout(()=>{postToPlayer('pause');revealAnswer(idx,right,choice,correct,level)},Math.max(2600,(Number(player.dataset.clip)||3.3)*1000+900));
   }
   if(state===0)revealAnswer(idx,right,choice,correct,level);
