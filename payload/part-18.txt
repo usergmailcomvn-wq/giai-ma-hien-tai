@@ -63,12 +63,45 @@ function refreshQuestionVideoReadiness(qIndex){
   else foot.textContent='VIDEO ĐANG ĐƯỢC CHUẨN BỊ NỀN  ·  BẠN CÓ THỂ CHỌN NGAY';
  }
 }
+const pendingPreloads=new Map();
+const activePreloads=new Set();
+const MAX_CONCURRENT_PRELOADS=2;
+function releasePreloadSlot(frame){
+ const id=frame?.dataset?.memeId;
+ if(!id)return;
+ if(frame._warmupTimer){clearTimeout(frame._warmupTimer);frame._warmupTimer=null}
+ activePreloads.delete(id);
+ pumpQuestionVideoPreloads();
+}
+function pumpQuestionVideoPreloads(){
+ while(activePreloads.size<MAX_CONCURRENT_PRELOADS&&pendingPreloads.size){
+  const first=pendingPreloads.entries().next().value;
+  if(!first)break;
+  const [id,job]=first;
+  pendingPreloads.delete(id);
+  if(preloadFrames.get(id)!==job.frame||job.frame.dataset.queued!=='1')continue;
+  activePreloads.add(id);
+  job.frame.dataset.queued='0';
+  job.frame.dataset.preloading='1';
+  job.frame.src=tikTokPlayerUrl(job.meme,true);
+  job.frame._warmupTimer=setTimeout(()=>{
+   if(job.frame.dataset.warmed!=='1'&&job.frame.dataset.failed!=='1'&&job.frame.dataset.autoplayBlocked!=='1'){
+    if(job.frame.dataset.ready==='1')job.frame.dataset.autoplayBlocked='1';
+    else job.frame.dataset.failed='1';
+   }
+   refreshQuestionVideoReadiness(job.qIndex);
+   releasePreloadSlot(job.frame);
+  },12000);
+ }
+}
 function preloadQuestionVideos(qIndex){
  if(qIndex<0||qIndex>=questions.length)return;
  const candidates=memeLevels.map(level=>memePool[level]?.[qIndex]).filter(Boolean);
  const wanted=new Set(candidates.map(m=>m.id));
  for(const [id,frame] of preloadFrames){
   if(!wanted.has(id)&&frame!==player){
+   pendingPreloads.delete(id);
+   if(activePreloads.delete(id)&&frame._warmupTimer){clearTimeout(frame._warmupTimer);frame._warmupTimer=null}
    frame.src='about:blank';frame.remove();preloadFrames.delete(id);
   }
  }
@@ -84,18 +117,13 @@ function preloadQuestionVideos(qIndex){
   frame.dataset.preload='1';
   frame.dataset.ready='0';
   frame.dataset.warmed='0';
+  frame.dataset.queued='1';
   frame.style.cssText='position:absolute;left:-10000px;top:0;width:320px;height:568px;border:0;opacity:0;pointer-events:none';
-  frame.src=tikTokPlayerUrl(meme,true);
   preloadHost.appendChild(frame);
   preloadFrames.set(meme.id,frame);
-  frame._warmupTimer=setTimeout(()=>{
-   if(frame.dataset.warmed!=='1'&&frame.dataset.failed!=='1'&&frame.dataset.autoplayBlocked!=='1'){
-    if(frame.dataset.ready==='1')frame.dataset.autoplayBlocked='1';
-    else frame.dataset.failed='1';
-    refreshQuestionVideoReadiness(qIndex);
-   }
-  },12000);
+  pendingPreloads.set(meme.id,{meme,qIndex,frame});
  });
+ pumpQuestionVideoPreloads();
  refreshQuestionVideoReadiness(qIndex);
 }
 function parkActivePlayer(){
@@ -255,7 +283,7 @@ function showTimeoutMeme(qIndex,answerSlideIndex,reason='timeout'){
  stage.classList.add('active');
  stage.setAttribute('aria-hidden','false');
  memeFinished=true;
- memeFallback=setTimeout(()=>finishTimeoutMeme(answerSlideIndex,reason),4200);
+ memeFallback=setTimeout(()=>finishTimeoutMeme(answerSlideIndex,reason),reason==='video'?1600:4200);
 }
 function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  stopPlayerTimers();
@@ -269,12 +297,20 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
   cached.src='about:blank';cached.remove();preloadFrames.delete(meme.id);cached=null;
  }
  if(cached){
+  pendingPreloads.delete(meme.id);
+  releasePreloadSlot(cached);
   parkActivePlayer();
   basePlayer.style.display='none';
   player=cached;
+  player.dataset.preload='0';
   stage.insertBefore(player,document.getElementById('meme-overlay'));
   player.style.cssText='width:100vw;height:100vh;border:0;background:#050302;display:block;visibility:hidden';
   playerReady=player.dataset.ready==='1';
+  const hasPlayerSource=!!player.getAttribute('src')&&player.getAttribute('src')!=='about:blank';
+  if(!hasPlayerSource){
+   player.dataset.queued='0';
+   player.src=tikTokPlayerUrl(meme,false);
+  }
  }else{
   parkActivePlayer();
   player=basePlayer;
@@ -289,9 +325,11 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  player.dataset.choice=choice;player.dataset.correct=correct;
  player.dataset.level=level;player.dataset.clip=String(meme.clip||3.3);
  if(cached){
-  // The selected clip is already loaded; request unmute and playback immediately.
-  postToPlayer('unMute');
-  postToPlayer('play');
+  // A warmed player can start immediately; a queued player loads after this user gesture.
+  if(player.getAttribute('src')&&player.getAttribute('src')!=='about:blank'){
+   postToPlayer('unMute');
+   postToPlayer('play');
+  }
  }else{
   // A cache miss is loaded only after the user's click, with autoplay enabled.
   player.src=tikTokPlayerUrl(meme,false);
@@ -301,7 +339,7 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
   if(memeFinished)return;
   if(!memeStarted)showTimeoutMeme(qIndex,answerSlideIndex,'video');
   else revealAnswer(answerSlideIndex,right,choice,correct,level);
- },2500);
+ },4500);
 }
 function stopPlayerTimers(){
  if(memeFallback){clearTimeout(memeFallback);memeFallback=null}
@@ -345,9 +383,9 @@ window.addEventListener('message',e=>{
   }
   if(d.type==='onStateChange'&&Number(d.value)===1){
    sourceFrame.dataset.warmed='1';
-   if(sourceFrame._warmupTimer){clearTimeout(sourceFrame._warmupTimer);sourceFrame._warmupTimer=null}
    sourceFrame.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*');
    refreshQuestionVideoReadiness(preloadQ);
+   releasePreloadSlot(sourceFrame);
   }
   if(d.type==='onPlayerError'||d.type==='onError'){
    const info=d.value&&typeof d.value==='object'?d.value:{};
@@ -361,6 +399,7 @@ window.addEventListener('message',e=>{
     sourceFrame.dataset.failed='1';
    }
    refreshQuestionVideoReadiness(preloadQ);
+   releasePreloadSlot(sourceFrame);
   }
   return;
  }
