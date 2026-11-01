@@ -296,6 +296,14 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  if(cached&&cached.dataset.failed==='1'){
   cached.src='about:blank';cached.remove();preloadFrames.delete(meme.id);cached=null;
  }
+ // Once the player selected by the user is known, stop fetching the three unused reactions.
+ for(const [id,frame] of preloadFrames){
+  if(id!==meme.id&&frame!==player){
+   pendingPreloads.delete(id);
+   if(activePreloads.delete(id)&&frame._warmupTimer){clearTimeout(frame._warmupTimer);frame._warmupTimer=null}
+   frame.src='about:blank';frame.remove();preloadFrames.delete(id);
+  }
+ }
  if(cached){
   pendingPreloads.delete(meme.id);
   releasePreloadSlot(cached);
