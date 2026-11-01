@@ -245,7 +245,7 @@ window.addEventListener('message',e=>{
 });
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
- const target='https://www.canva.com/d/hryDQ2Wnxf3lbgJ';
+ const target='https://www.canva.com/d/2-OXq6vlIlUNPNV';
  try{
   if(window.opener&&!window.opener.closed){
    window.opener.location.href=target;
