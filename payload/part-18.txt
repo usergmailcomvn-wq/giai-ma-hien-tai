@@ -451,7 +451,7 @@ window.addEventListener('message',e=>{
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
  // Open the original design in Canva's full-screen presentation route, on slide 14.
- const target='https://www.canva.com/d/VBI-41Rniso-ePk';
+ const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/edit?ui=eyJEIjp7IlQiOnsiQSI6IlBCN2ZtSjRmN2ozSFJyNzUifX19';
  try{
   if(window.opener&&!window.opener.closed){
    window.opener.location.replace(target);
