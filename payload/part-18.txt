@@ -32,10 +32,48 @@ document.body.appendChild(preloadHost);
 const preloadFrames=new Map();
 const memeLevels=['correct','mild','medium','severe'];
 function tikTokPlayerUrl(meme,preload){
+ // Preload silently, but do not force-mute the player: the selected iframe must accept unMute.
  const params=preload
-  ?'?autoplay=1&force_muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0'
-  :'?autoplay=1&force_muted=0&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
+  ?'?autoplay=1&muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0'
+  :'?autoplay=1&muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
  return 'https://www.tiktok.com/player/v1/'+meme.id+params;
+}
+function memeForQuestionChoice(qIndex,choice){
+ const answer=answers[qIndex]?.s.querySelector('.answer-letter');
+ const correct=(answer?.textContent||'').replace(/[^A-D]/g,'').slice(-1);
+ const right=choice===correct;
+ const level=right?'correct':(wrongSeverityByQuestion[qIndex]?.[choice]||'severe');
+ return memePool[level]?.[qIndex]||null;
+}
+function refreshQuestionVideoReadiness(qIndex){
+ const q=questions[qIndex];if(!q)return;
+ const candidates=memeLevels.map(level=>memePool[level]?.[qIndex]).filter(Boolean);
+ let warmed=0,failed=0,ready=0;
+ q.s.querySelectorAll('.option').forEach(button=>{
+  const meme=memeForQuestionChoice(qIndex,button.dataset.choice||'');
+  const frame=meme&&preloadFrames.get(meme.id);
+  const isWarmed=frame?.dataset.warmed==='1';
+  const isFailed=frame?.dataset.failed==='1';
+  if(isWarmed)warmed++;
+  if(isFailed)failed++;
+  if(frame?.dataset.ready==='1')ready++;
+  // A choice becomes clickable only after its exact reaction video has been prepared.
+  button.disabled=!isWarmed;
+ });
+ const allDone=candidates.every(m=>{
+  const frame=preloadFrames.get(m.id);
+  return frame&&(frame.dataset.warmed==='1'||frame.dataset.failed==='1');
+ });
+ const foot=q.s.querySelector('.qfoot');
+ if(foot){
+  if(allDone&&failed===0)foot.textContent='VIDEO ĐÃ SẴN SÀNG  ·  CHỌN ĐÁP ÁN';
+  else if(allDone)foot.textContent='VIDEO SẴN SÀNG '+warmed+'/'+candidates.length+'  ·  '+failed+' VIDEO KHÔNG TẢI ĐƯỢC';
+  else foot.textContent='ĐANG CHUẨN BỊ VIDEO  '+warmed+'/'+candidates.length+'  ·  VUI LÒNG CHỜ';
+ }
+ if(allDone&&q.s.classList.contains('active')&&!q.s.dataset.timerStarted){
+  q.s.dataset.timerStarted='1';
+  if(warmed>0)startTimer(q.s);
+ }
 }
 function preloadQuestionVideos(qIndex){
  if(qIndex<0||qIndex>=questions.length)return;
@@ -54,12 +92,16 @@ function preloadQuestionVideos(qIndex){
   frame.referrerPolicy='strict-origin-when-cross-origin';
   frame.setAttribute('allow','autoplay; encrypted-media; fullscreen; picture-in-picture; web-share');
   frame.dataset.memeId=meme.id;
+  frame.dataset.questionIndex=String(qIndex);
   frame.dataset.preload='1';
+  frame.dataset.ready='0';
+  frame.dataset.warmed='0';
   frame.style.cssText='position:absolute;left:-10000px;top:0;width:320px;height:568px;border:0;opacity:0;pointer-events:none';
   frame.src=tikTokPlayerUrl(meme,true);
   preloadHost.appendChild(frame);
   preloadFrames.set(meme.id,frame);
  });
+ refreshQuestionVideoReadiness(qIndex);
 }
 function parkActivePlayer(){
  if(player!==basePlayer){
@@ -113,9 +155,11 @@ function show(n){
  if(bar)bar.style.width=((current+1)/slides.length*100)+'%';
  const s=slides[current];
  if(s.dataset.kind==='question'){
-  s.querySelectorAll('.option').forEach(o=>{o.disabled=false;o.classList.remove('is-picked')});
-  preloadQuestionVideos(questions.findIndex(q=>q.i===current));
-  startTimer(s);
+  const qIndex=questions.findIndex(q=>q.i===current);
+  s.dataset.timerStarted='';
+  s.querySelectorAll('.option').forEach(o=>{o.disabled=true;o.classList.remove('is-picked')});
+  preloadQuestionVideos(qIndex);
+  refreshQuestionVideoReadiness(qIndex);
  }else if(s.dataset.kind==='answer'){
   preloadQuestionVideos(answers.findIndex(a=>a.i===current)+1);
  }
@@ -173,10 +217,15 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  player.dataset.right=right?'1':'0';
  player.dataset.choice=choice;player.dataset.correct=correct;
  player.dataset.level=level;player.dataset.clip=String(meme.clip||3.3);
- if(cached&&playerReady){
-  postToPlayer('unMute');postToPlayer('play');
- }else if(!cached){
+ if(cached){
+  // The iframe is already loaded and warmed; send play in the same user-selection turn.
+  postToPlayer('unMute');
+  postToPlayer('play');
+ }else{
+  // Fallback for a cache miss. The iframe is permitted to autoplay and will be told to play again when ready.
   player.src=tikTokPlayerUrl(meme,false);
+  postToPlayer('unMute');
+  postToPlayer('play');
  }
  memeStartGuard=setTimeout(()=>{if(!memeStarted&&!memeFinished){postToPlayer('unMute');postToPlayer('play')}},1500);
  memeFallback=setTimeout(()=>{if(!memeFinished)revealAnswer(answerSlideIndex,right,choice,correct,level)},7500);
@@ -211,10 +260,32 @@ window.addEventListener('message',e=>{
  if(!d||typeof d!=='object')return;
  const sourceFrame=[...preloadFrames.values()].find(frame=>frame.contentWindow===e.source);
  if(sourceFrame&&e.source!==player.contentWindow){
-  if(d.type==='onPlayerReady')sourceFrame.dataset.ready='1';
+  const preloadQ=Number(sourceFrame.dataset.questionIndex);
+  if(d.type==='onPlayerReady'){
+   sourceFrame.dataset.ready='1';
+   // A muted autoplay warms the remote TikTok player before the player is selected.
+   try{
+    sourceFrame.contentWindow.postMessage({type:'mute','x-tiktok-player':true},'*');
+    sourceFrame.contentWindow.postMessage({type:'play','x-tiktok-player':true},'*');
+   }catch(_){}
+   refreshQuestionVideoReadiness(preloadQ);
+  }
   if(d.type==='onStateChange'&&Number(d.value)===1){
    sourceFrame.dataset.warmed='1';
    sourceFrame.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*');
+   refreshQuestionVideoReadiness(preloadQ);
+  }
+  if(d.type==='onPlayerError'||d.type==='onError'){
+   const info=d.value||{};
+   const code=Number(info.errorCode??d.errorCode??d.value);
+   if(code===3002){
+    // Autoplay may be blocked by browser policy; the explicit user click will request playback again.
+    sourceFrame.dataset.ready='1';
+    sourceFrame.dataset.autoplayBlocked='1';
+   }else{
+    sourceFrame.dataset.failed='1';
+   }
+   refreshQuestionVideoReadiness(preloadQ);
   }
   return;
  }
@@ -222,7 +293,8 @@ window.addEventListener('message',e=>{
  const idx=Number(player.dataset.answer),right=player.dataset.right==='1',choice=player.dataset.choice,correct=player.dataset.correct,level=player.dataset.level||'severe';
  if(d.type==='onPlayerReady'){
   playerReady=true;player.dataset.ready='1';
-  postToPlayer('unMute');setTimeout(()=>postToPlayer('play'),100);
+  postToPlayer('unMute');
+  postToPlayer('play');
  }
  if(d.type==='onStateChange'){
   const state=Number(d.value);
@@ -241,19 +313,23 @@ window.addEventListener('message',e=>{
    postToPlayer('pause');revealAnswer(idx,right,choice,correct,level);
   }
  }
- if(d.type==='onPlayerError')revealAnswer(idx,right,choice,correct,level);
+ if(d.type==='onPlayerError'||d.type==='onError'){
+  if(memeCaption)memeCaption.textContent='TikTok không phát được video này trong phiên hiện tại.';
+  revealAnswer(idx,right,choice,correct,level);
+ }
 });
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
- const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/edit';
+ // Return to the original deck in read-only presentation view, landing on the final slide (14/14).
+ const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/view?page=14';
  try{
   if(window.opener&&!window.opener.closed){
-   window.opener.location.href=target;
+   window.opener.location.replace(target);
    window.close();
    return;
   }
  }catch(e){}
- window.location.assign(target);
+ window.location.replace(target);
 }
 function next(){
  const s=slides[current];
