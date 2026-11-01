@@ -54,15 +54,16 @@ function refreshQuestionVideoReadiness(qIndex){
   const frame=meme&&preloadFrames.get(meme.id);
   const isWarmed=frame?.dataset.warmed==='1';
   const isFailed=frame?.dataset.failed==='1';
+  const autoplayBlocked=frame?.dataset.autoplayBlocked==='1';
   if(isWarmed)warmed++;
   if(isFailed)failed++;
   if(frame?.dataset.ready==='1')ready++;
-  // A choice becomes clickable only after its exact reaction video has been prepared.
-  button.disabled=!isWarmed;
+  // A warmed clip is instant; a ready-but-autoplay-blocked clip can still be started by the user's click.
+  button.disabled=!(isWarmed||autoplayBlocked);
  });
  const allDone=candidates.every(m=>{
   const frame=preloadFrames.get(m.id);
-  return frame&&(frame.dataset.warmed==='1'||frame.dataset.failed==='1');
+  return frame&&(frame.dataset.warmed==='1'||frame.dataset.autoplayBlocked==='1'||frame.dataset.failed==='1');
  });
  const foot=q.s.querySelector('.qfoot');
  if(foot){
@@ -72,7 +73,7 @@ function refreshQuestionVideoReadiness(qIndex){
  }
  if(allDone&&q.s.classList.contains('active')&&!q.s.dataset.timerStarted){
   q.s.dataset.timerStarted='1';
-  if(warmed>0)startTimer(q.s);
+  if(warmed+ready>0)startTimer(q.s);
  }
 }
 function preloadQuestionVideos(qIndex){
@@ -100,6 +101,13 @@ function preloadQuestionVideos(qIndex){
   frame.src=tikTokPlayerUrl(meme,true);
   preloadHost.appendChild(frame);
   preloadFrames.set(meme.id,frame);
+  frame._warmupTimer=setTimeout(()=>{
+   if(frame.dataset.warmed!=='1'&&frame.dataset.failed!=='1'&&frame.dataset.autoplayBlocked!=='1'){
+    if(frame.dataset.ready==='1')frame.dataset.autoplayBlocked='1';
+    else frame.dataset.failed='1';
+    refreshQuestionVideoReadiness(qIndex);
+   }
+  },12000);
  });
  refreshQuestionVideoReadiness(qIndex);
 }
@@ -272,12 +280,14 @@ window.addEventListener('message',e=>{
   }
   if(d.type==='onStateChange'&&Number(d.value)===1){
    sourceFrame.dataset.warmed='1';
+   if(sourceFrame._warmupTimer){clearTimeout(sourceFrame._warmupTimer);sourceFrame._warmupTimer=null}
    sourceFrame.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*');
    refreshQuestionVideoReadiness(preloadQ);
   }
   if(d.type==='onPlayerError'||d.type==='onError'){
    const info=d.value||{};
    const code=Number(info.errorCode??d.errorCode??d.value);
+   if(sourceFrame._warmupTimer){clearTimeout(sourceFrame._warmupTimer);sourceFrame._warmupTimer=null}
    if(code===3002){
     // Autoplay may be blocked by browser policy; the explicit user click will request playback again.
     sourceFrame.dataset.ready='1';
