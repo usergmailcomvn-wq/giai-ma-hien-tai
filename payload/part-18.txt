@@ -11,13 +11,65 @@ const slides=[...document.querySelectorAll('.slide')];
 const questions=slides.map((s,i)=>({s,i})).filter(x=>x.s.dataset.kind==='question');
 const answers=slides.map((s,i)=>({s,i})).filter(x=>x.s.dataset.kind==='answer');
 const count=document.getElementById('counter'),bar=document.getElementById('progress');
-const stage=document.getElementById('meme-stage'),player=document.getElementById('meme-player'),riverSound=document.getElementById('river-sound');
+const stage=document.getElementById('meme-stage');
+const basePlayer=document.getElementById('meme-player');
+let player=basePlayer;
+const riverSound=document.getElementById('river-sound');
 const audioHint=document.getElementById('audio-autoplay-hint');
 const memeReaction=document.getElementById('meme-reaction'),memeCaption=document.getElementById('meme-caption'),memeSource=document.getElementById('meme-source');
 let current=0,timer=null,remaining=15,audioCtx=null,answerIndex=0,selectedChoice='',memeFallback=null,playerReady=false,introTimer=null;
 // These TikTok posts were already present in the previous deck. Their individual popularity figures are not asserted here.
 const memePool={"correct":[{"id":"7658394657478692116","creator":"@trhuuthanh_","caption":"Bắt nhịp rất chuẩn — đáp án chính xác!","views":2943114,"likes":214148,"comments":783,"shares":null,"clip":3.4,"reason":"Phản ứng tích cực, phù hợp khi chọn đúng."},{"id":"7686880383987764500","creator":"@noib3n","caption":"Mèo cũng đồng tình với lựa chọn này!","views":830315,"likes":181945,"comments":770,"shares":195917,"clip":3.2,"reason":"Meme thú cưng dễ thương, dùng cho phản hồi tích cực."},{"id":"7669758865273081108","creator":"@nomochuchi3","caption":"Một màn trình diễn xứng đáng điểm cộng!","views":884761,"likes":83695,"comments":101,"shares":4342,"clip":3.6,"reason":"Đoạn trình diễn âm nhạc, không mang tính công kích."},{"id":"7673858003208064276","creator":"@viechannel.show","caption":"Không phải ai cũng làm được — bạn làm được!","views":683105,"likes":56971,"comments":null,"shares":null,"clip":3.5,"reason":"Phản ứng khích lệ, hợp với đáp án chính xác."},{"id":"7688178907450707221","creator":"@4chj.em.trungquoc","caption":"Chuẩn rồi, không cần sửa!","views":588924,"likes":15527,"comments":486,"shares":3784,"clip":3.0,"reason":"Meme xác nhận đáp án theo hướng tích cực."}],"mild":[{"id":"7686354319293173000","creator":"@trnkhnh2576","caption":"Một nhịp nhạc đổi hướng — kiểm tra lại chi tiết nhé.","views":23200000,"likes":1300000,"comments":null,"shares":null,"clip":3.2,"reason":"Video nhịp nhạc đang thịnh hành, không dùng câu xưng hô trong chú thích."},{"id":"7612483994327764241","creator":"@c2vietnam.official","caption":"Một pha chuyển cảnh vui — đáp án vẫn cần căn cứ.","views":154200000,"likes":95500,"comments":null,"shares":null,"clip":3.3,"reason":"Video đang thịnh hành trong nguồn Việt Nam, chú thích không có cách gọi thân tộc."},{"id":"7689843348810616065","creator":"@mt2135hr","caption":"Một góc nhìn học tập khiến bạn phải xem lại.","views":29600000,"likes":250200,"comments":null,"shares":null,"clip":3.3,"reason":"Nội dung học tập phù hợp chủ đề câu hỏi, không dùng cách xưng hô trong chú thích."},{"id":"7669122061931007252","creator":"@lobste126","caption":"Oke, nhưng thử xem lại căn cứ nhé.","views":1683310,"likes":101458,"comments":743,"shares":198429,"clip":3.4,"reason":"Phản ứng ngắn, nhắc người chơi kiểm tra lại."},{"id":"7663476264128351506","creator":"@darkdaigiatienle","caption":"Khoảnh khắc ngập ngừng trước khi chọn đáp án.","views":121343,"likes":7290,"comments":1067,"shares":3086,"clip":2.8,"reason":"Meme biểu cảm, mức phản ứng nhẹ."}],"medium":[{"id":"7651571147972136212","creator":"@jfz3yr","caption":"Một câu trả lời khiến tình huống đổi nhịp.","views":183635,"likes":22169,"comments":130,"shares":3658,"clip":3.1,"reason":"Phản ứng bối rối, phù hợp lỗi ở mức vừa."},{"id":"7684493993614282005","creator":"@tdh2549","caption":"Cả nhóm cùng nhận ra có điều chưa ổn.","views":245713,"likes":18572,"comments":111,"shares":13254,"clip":3.4,"reason":"Tình huống học đường, phản ứng nhóm ở mức vừa."},{"id":"7604838800157609224","creator":"@aihoi1200","caption":"Tình huống rẽ hướng ngoài dự đoán.","views":360095,"likes":6729,"comments":163,"shares":10984,"clip":3.0,"reason":"Meme tình huống hài, dùng cho lỗi lập luận vừa."},{"id":"7690877161548401940","creator":"@heocaoboisnackdinhduong","caption":"Bài toán tưởng đơn giản nhưng đáp án lại bất ngờ.","views":104400000,"likes":67200,"comments":null,"shares":null,"clip":3.3,"reason":"Video có tình huống hỏi–đáp ngắn, phù hợp phản ứng sai ở mức vừa."},{"id":"7671468015480900872","creator":"@stingworldvietnam","caption":"Nhịp tăng tốc bất ngờ — mức phản ứng cao hơn.","views":63300000,"likes":14200,"comments":null,"shares":null,"clip":3.4,"reason":"Video năng lượng cao, dùng cho phản ứng sai ở mức vừa."}],"severe":[{"id":"7682290509527665941","creator":"@trangvachigai","caption":"Ở một diễn biến khác — lựa chọn này rẽ sang hướng không ai đoán trước!","views":13700000,"likes":615000,"comments":null,"shares":null,"clip":3.3,"reason":"Clip TikTok Việt Nam đang thịnh hành ngày 01/11/2026; nội dung hiển thị theo kiểu tình huống bất ngờ, thay cho clip cũ không phù hợp tiêu chí lời thoại."},{"id":"7610649601812516117","creator":"@truyenbaton","caption":"Một nhầm lẫn khiến cả lớp phải kiểm tra lại.","views":3522312,"likes":146513,"comments":438,"shares":38321,"clip":3.5,"reason":"Tình huống hài về nhầm lẫn; không công kích trí tuệ người chơi."},{"id":"7675976201395047698","creator":"@codongnat_99","caption":"Một diễn biến khó đoán — quay lại dữ kiện nhé.","views":12200000,"likes":531500,"comments":null,"shares":null,"clip":3.3,"reason":"Video phản ứng tình huống, phù hợp mức sai xa mà không cần lời chế nhạo."},{"id":"7636275907077868807","creator":"@toiyeuxucxich36","caption":"Mở sách kiểm tra lại: căn cứ nằm ngay trong bài.","views":1363379,"likes":53249,"comments":381,"shares":15754,"clip":3.3,"reason":"Meme học đường, nhắc quay lại văn bản."},{"id":"7691971352802233621","creator":"@nhockhang77777","caption":"So sánh hơi xa — quay về đúng câu hỏi nhé.","views":2815971,"likes":25731,"comments":909,"shares":6986,"clip":3.3,"reason":"Meme so sánh nhân vật giải trí, không dùng để chế giễu cá nhân."}]};
 const wrongSeverityByQuestion=[{A:'medium',B:'mild',D:'severe'},{B:'mild',C:'medium',D:'severe'},{A:'mild',B:'medium',C:'severe'},{C:'mild',D:'medium',A:'severe'},{D:'mild',A:'medium',B:'severe'}];
+
+// Warm up only the four possible reaction videos for the current question.
+// Muted background playback is paused as soon as each TikTok player starts.
+const preloadHost=document.createElement('div');
+preloadHost.id='meme-preload-host';
+preloadHost.setAttribute('aria-hidden','true');
+preloadHost.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1';
+document.body.appendChild(preloadHost);
+const preloadFrames=new Map();
+const memeLevels=['correct','mild','medium','severe'];
+function tikTokPlayerUrl(meme,preload){
+ const params=preload
+  ?'?autoplay=1&force_muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0'
+  :'?autoplay=1&force_muted=0&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
+ return 'https://www.tiktok.com/player/v1/'+meme.id+params;
+}
+function preloadQuestionVideos(qIndex){
+ if(qIndex<0||qIndex>=questions.length)return;
+ const candidates=memeLevels.map(level=>memePool[level]?.[qIndex]).filter(Boolean);
+ const wanted=new Set(candidates.map(m=>m.id));
+ for(const [id,frame] of preloadFrames){
+  if(!wanted.has(id)&&frame!==player){
+   frame.src='about:blank';frame.remove();preloadFrames.delete(id);
+  }
+ }
+ candidates.forEach(meme=>{
+  if(preloadFrames.has(meme.id))return;
+  const frame=document.createElement('iframe');
+  frame.title='Prepared reaction video';
+  frame.loading='eager';
+  frame.referrerPolicy='strict-origin-when-cross-origin';
+  frame.setAttribute('allow','autoplay; encrypted-media; fullscreen; picture-in-picture; web-share');
+  frame.dataset.memeId=meme.id;
+  frame.dataset.preload='1';
+  frame.style.cssText='position:absolute;left:-10000px;top:0;width:320px;height:568px;border:0;opacity:0;pointer-events:none';
+  frame.src=tikTokPlayerUrl(meme,true);
+  preloadHost.appendChild(frame);
+  preloadFrames.set(meme.id,frame);
+ });
+}
+function parkActivePlayer(){
+ if(player!==basePlayer){
+  player.style.cssText='position:absolute;left:-10000px;top:0;width:320px;height:568px;border:0;opacity:0;pointer-events:none';
+  player.dataset.preload='1';
+  preloadHost.appendChild(player);
+  player=basePlayer;
+ }
+ basePlayer.style.display='';
+}
 let chosenMeme=null,memeStarted=false,memeFinished=false,memeStartGuard=null,memeCutoff=null;
 
 function startRiverAudio(){
@@ -43,8 +95,40 @@ function startTimer(s){stopTimer();remaining=15;const time=s.querySelector('.tim
  timer=setInterval(()=>{remaining=Math.max(0,remaining-1);if(time)time.textContent=String(remaining).padStart(2,'0');if(remaining<=5&&remaining>0)tone(remaining<=2?1046:880,.09,remaining<=2?.11:.075);if(remaining===0){tone(660,.18,.13);setTimeout(()=>tone(520,.22,.12),180);stopTimer()}},1000)}
 function pausePlayer(){try{if(player.contentWindow)player.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*')}catch(e){}}
 function postToPlayer(type,value){try{if(player.contentWindow){const msg={type,'x-tiktok-player':true};if(value!==undefined)msg.value=value;player.contentWindow.postMessage(msg,'*')}}catch(e){}}
-function hideMeme(){if(memeFallback){clearTimeout(memeFallback);memeFallback=null}pausePlayer();stage.classList.remove('active');stage.setAttribute('aria-hidden','true');player.removeAttribute('src');playerReady=false;player.style.visibility='visible'}
-function show(n){stopTimer();hideMeme();current=Math.max(0,Math.min(slides.length-1,n));slides.forEach((s,j)=>s.classList.toggle('active',j===current));if(count)count.textContent=String(current+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');if(bar)bar.style.width=((current+1)/slides.length*100)+'%';const s=slides[current];if(s.dataset.kind==='question'){s.querySelectorAll('.option').forEach(o=>{o.disabled=false;o.classList.remove('is-picked')});startTimer(s)};if(s.dataset.kind==='cover'){const v=s.querySelector('video');if(v){v.currentTime=0;v.play().catch(()=>{})}if(riverSound){riverSound.currentTime=0;startRiverAudio()}}else if(riverSound){riverSound.pause();riverSound.currentTime=0;if(audioHint)audioHint.hidden=true}}
+function hideMeme(){
+ if(memeFallback){clearTimeout(memeFallback);memeFallback=null}
+ pausePlayer();
+ stage.classList.remove('active');
+ stage.setAttribute('aria-hidden','true');
+ parkActivePlayer();
+ basePlayer.removeAttribute('src');
+ playerReady=false;
+ basePlayer.style.visibility='visible';
+}
+function show(n){
+ stopTimer();hideMeme();
+ current=Math.max(0,Math.min(slides.length-1,n));
+ slides.forEach((s,j)=>s.classList.toggle('active',j===current));
+ if(count)count.textContent=String(current+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+ if(bar)bar.style.width=((current+1)/slides.length*100)+'%';
+ const s=slides[current];
+ if(s.dataset.kind==='question'){
+  s.querySelectorAll('.option').forEach(o=>{o.disabled=false;o.classList.remove('is-picked')});
+  preloadQuestionVideos(questions.findIndex(q=>q.i===current));
+  startTimer(s);
+ }else if(s.dataset.kind==='answer'){
+  preloadQuestionVideos(answers.findIndex(a=>a.i===current)+1);
+ }
+ if(s.dataset.kind==='cover'){
+  const v=s.querySelector('video');
+  if(v){v.currentTime=0;v.play().catch(()=>{})}
+  if(riverSound){riverSound.currentTime=0;startRiverAudio()}
+  preloadQuestionVideos(0);
+ }else if(riverSound){
+  riverSound.pause();riverSound.currentTime=0;
+  if(audioHint)audioHint.hidden=true;
+ }
+}
 function chooseOption(q,button){
  if(button.disabled)return;
  stopTimer();ensureAudio();
@@ -68,17 +152,33 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  stopPlayerTimers();
  if(memeReaction)memeReaction.textContent=memeLevelLabels[level]||memeLevelLabels.severe;
  if(memeCaption)memeCaption.textContent=meme.caption||'Phản ứng cho lựa chọn này';
- if(memeSource)memeSource.textContent='VIDEO TIKTOK NGẮN  ·  '+(meme.creator||'');memeStarted=false;memeFinished=false;
- stage.classList.add('active');stage.setAttribute('aria-hidden','false');playerReady=false;player.style.visibility='hidden';
+ if(memeSource)memeSource.textContent='VIDEO TIKTOK NGẮN  ·  '+(meme.creator||'');
+ memeStarted=false;memeFinished=false;
+ const cached=preloadFrames.get(meme.id);
+ if(cached){
+  parkActivePlayer();
+  basePlayer.style.display='none';
+  player=cached;
+  stage.insertBefore(player,document.getElementById('meme-overlay'));
+  player.style.cssText='width:100vw;height:100vh;border:0;background:#050302;display:block;visibility:hidden';
+  playerReady=player.dataset.ready==='1';
+ }else{
+  parkActivePlayer();
+  player=basePlayer;
+  basePlayer.style.display='';
+  playerReady=false;
+ }
+ stage.classList.add('active');stage.setAttribute('aria-hidden','false');
  player.dataset.answer=String(answerSlideIndex);
  player.dataset.right=right?'1':'0';
  player.dataset.choice=choice;player.dataset.correct=correct;
  player.dataset.level=level;player.dataset.clip=String(meme.clip||3.3);
- const params='?autoplay=1&force_muted=0&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
- player.src='https://www.tiktok.com/player/v1/'+meme.id+params;
- // Keep the original TikTok sound for each reaction clip.
- memeStartGuard=setTimeout(()=>{if(!memeStarted&&!memeFinished){postToPlayer('unMute');postToPlayer('play')}},1800);
- // Never leave the answer screen waiting indefinitely if TikTok rejects or cannot load a post.
+ if(cached&&playerReady){
+  postToPlayer('unMute');postToPlayer('play');
+ }else if(!cached){
+  player.src=tikTokPlayerUrl(meme,false);
+ }
+ memeStartGuard=setTimeout(()=>{if(!memeStarted&&!memeFinished){postToPlayer('unMute');postToPlayer('play')}},1500);
  memeFallback=setTimeout(()=>{if(!memeFinished)revealAnswer(answerSlideIndex,right,choice,correct,level)},7500);
 }
 function stopPlayerTimers(){
@@ -109,9 +209,20 @@ window.addEventListener('message',e=>{
  if(!e.origin.includes('tiktok.com'))return;
  let d=e.data;if(typeof d==='string'){try{d=JSON.parse(d)}catch(_){return}}
  if(!d||typeof d!=='object')return;
+ const sourceFrame=[...preloadFrames.values()].find(frame=>frame.contentWindow===e.source);
+ if(sourceFrame&&e.source!==player.contentWindow){
+  if(d.type==='onPlayerReady')sourceFrame.dataset.ready='1';
+  if(d.type==='onStateChange'&&Number(d.value)===1){
+   sourceFrame.dataset.warmed='1';
+   sourceFrame.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*');
+  }
+  return;
+ }
+ if(e.source!==player.contentWindow)return;
  const idx=Number(player.dataset.answer),right=player.dataset.right==='1',choice=player.dataset.choice,correct=player.dataset.correct,level=player.dataset.level||'severe';
  if(d.type==='onPlayerReady'){
-  playerReady=true;postToPlayer('unMute');setTimeout(()=>postToPlayer('play'),100);
+  playerReady=true;player.dataset.ready='1';
+  postToPlayer('unMute');setTimeout(()=>postToPlayer('play'),100);
  }
  if(d.type==='onStateChange'){
   const state=Number(d.value);
@@ -192,10 +303,9 @@ if(startButton){
  startButton.style.position='relative';
  startButton.style.zIndex='1001';
  startButton.style.pointerEvents='auto';
- startButton.onclick=beginPresentation;
  startButton.addEventListener('click',beginPresentation);
 }
-document.querySelector('.replay')?.addEventListener('click',()=>show(0));document.querySelector('.replay')?.addEventListener('click',()=>show(0));
+document.querySelector('.replay')?.addEventListener('click',()=>show(0));
 document.addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next()}else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}else if(e.key.toLowerCase()==='f'){if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()}else if(e.key==='Home')show(0);else if(e.key==='End')show(slides.length-1)});
 show(0);
 })();</script></body></html>
