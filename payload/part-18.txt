@@ -32,10 +32,10 @@ document.body.appendChild(preloadHost);
 const preloadFrames=new Map();
 const memeLevels=['correct','mild','medium','severe'];
 function tikTokPlayerUrl(meme,preload){
- // Preload silently, but do not force-mute the player: the selected iframe must accept unMute.
+ // Prepare embeds muted by the documented mute command, but keep force_muted=0 so they can be unmuted after selection.
  const params=preload
-  ?'?autoplay=1&muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0'
-  :'?autoplay=1&muted=1&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
+  ?'?autoplay=0&force_muted=0&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0'
+  :'?autoplay=1&force_muted=0&loop=0&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&description=0&music_info=0&rel=0&native_context_menu=0';
  return 'https://www.tiktok.com/player/v1/'+meme.id+params;
 }
 function memeForQuestionChoice(qIndex,choice){
@@ -48,32 +48,19 @@ function memeForQuestionChoice(qIndex,choice){
 function refreshQuestionVideoReadiness(qIndex){
  const q=questions[qIndex];if(!q)return;
  const candidates=memeLevels.map(level=>memePool[level]?.[qIndex]).filter(Boolean);
- let warmed=0,failed=0,ready=0;
- q.s.querySelectorAll('.option').forEach(button=>{
-  const meme=memeForQuestionChoice(qIndex,button.dataset.choice||'');
-  const frame=meme&&preloadFrames.get(meme.id);
-  const isWarmed=frame?.dataset.warmed==='1';
-  const isFailed=frame?.dataset.failed==='1';
-  const autoplayBlocked=frame?.dataset.autoplayBlocked==='1';
-  if(isWarmed)warmed++;
-  if(isFailed)failed++;
-  if(frame?.dataset.ready==='1')ready++;
-  // A warmed clip is instant; a ready-but-autoplay-blocked clip can still be started by the user's click.
-  button.disabled=!(isWarmed||autoplayBlocked);
- });
- const allDone=candidates.every(m=>{
-  const frame=preloadFrames.get(m.id);
-  return frame&&(frame.dataset.warmed==='1'||frame.dataset.autoplayBlocked==='1'||frame.dataset.failed==='1');
+ let warmed=0,failed=0;
+ // Loading a reaction clip must never make an answer unselectable.
+ q.s.querySelectorAll('.option').forEach(button=>{button.disabled=false});
+ candidates.forEach(meme=>{
+  const frame=preloadFrames.get(meme.id);
+  if(frame?.dataset.warmed==='1')warmed++;
+  if(frame?.dataset.failed==='1')failed++;
  });
  const foot=q.s.querySelector('.qfoot');
  if(foot){
-  if(allDone&&failed===0)foot.textContent='VIDEO ĐÃ SẴN SÀNG  ·  CHỌN ĐÁP ÁN';
-  else if(allDone)foot.textContent='VIDEO SẴN SÀNG '+warmed+'/'+candidates.length+'  ·  '+failed+' VIDEO KHÔNG TẢI ĐƯỢC';
-  else foot.textContent='ĐANG CHUẨN BỊ VIDEO  '+warmed+'/'+candidates.length+'  ·  VUI LÒNG CHỜ';
- }
- if(allDone&&q.s.classList.contains('active')&&!q.s.dataset.timerStarted){
-  q.s.dataset.timerStarted='1';
-  if(warmed+ready>0)startTimer(q.s);
+  if(warmed===candidates.length)foot.textContent='VIDEO ĐÃ CHUẨN BỊ  ·  CHỌN ĐÁP ÁN';
+  else if(failed)foot.textContent='ĐANG TẢI DỰ PHÒNG VIDEO  ·  BẠN VẪN CÓ THỂ CHỌN';
+  else foot.textContent='VIDEO ĐANG ĐƯỢC CHUẨN BỊ NỀN  ·  BẠN CÓ THỂ CHỌN NGAY';
  }
 }
 function preloadQuestionVideos(qIndex){
@@ -141,8 +128,27 @@ function stopTimer(){if(timer){clearInterval(timer);timer=null}}
 function ensureAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!audioCtx)audioCtx=new C();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}catch(e){return null}}
 function tone(freq=880,duration=.11,vol=.08){const c=ensureAudio();if(!c)return;try{const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+duration);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+duration)}catch(e){}}
 function feedbackSound(right){ensureAudio();if(right){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.20,.105),i*95))}else{[520,390,260].forEach((f,i)=>setTimeout(()=>tone(f,.24,.12),i*120))}}
-function startTimer(s){stopTimer();remaining=15;const time=s.querySelector('.time'),fill=s.querySelector('.timerline b');if(time)time.textContent='15';if(fill){fill.style.transition='none';fill.style.transform='scaleX(1)';requestAnimationFrame(()=>{fill.style.transition='transform 15s linear';fill.style.transform='scaleX(0)'})}
- timer=setInterval(()=>{remaining=Math.max(0,remaining-1);if(time)time.textContent=String(remaining).padStart(2,'0');if(remaining<=5&&remaining>0)tone(remaining<=2?1046:880,.09,remaining<=2?.11:.075);if(remaining===0){tone(660,.18,.13);setTimeout(()=>tone(520,.22,.12),180);stopTimer()}},1000)}
+function startTimer(s){
+ stopTimer();remaining=15;
+ const time=s.querySelector('.time'),fill=s.querySelector('.timerline b');
+ if(time)time.textContent='15';
+ if(fill){
+  fill.style.transition='none';fill.style.transform='scaleX(1)';
+  requestAnimationFrame(()=>{fill.style.transition='transform 15s linear';fill.style.transform='scaleX(0)'});
+ }
+ timer=setInterval(()=>{
+  remaining=Math.max(0,remaining-1);
+  if(time)time.textContent=String(remaining).padStart(2,'0');
+  if(remaining<=5&&remaining>0)tone(remaining<=2?1046:880,.09,remaining<=2?.11:.075);
+  if(remaining===0){
+   tone(660,.18,.13);setTimeout(()=>tone(520,.22,.12),180);
+   stopTimer();
+   const qIndex=questions.findIndex(q=>q.s===s);
+   const answer=answers[qIndex];
+   if(answer)showTimeoutMeme(qIndex,answer.i,'timeout');
+  }
+ },1000);
+}
 function pausePlayer(){try{if(player.contentWindow)player.contentWindow.postMessage({type:'pause','x-tiktok-player':true},'*')}catch(e){}}
 function postToPlayer(type,value){try{if(player.contentWindow){const msg={type,'x-tiktok-player':true};if(value!==undefined)msg.value=value;player.contentWindow.postMessage(msg,'*')}}catch(e){}}
 function hideMeme(){
@@ -150,6 +156,8 @@ function hideMeme(){
  pausePlayer();
  stage.classList.remove('active');
  stage.setAttribute('aria-hidden','true');
+ const timeoutPanel=document.getElementById('timeout-meme');
+ if(timeoutPanel){timeoutPanel.classList.remove('active');timeoutPanel.setAttribute('aria-hidden','true')}
  parkActivePlayer();
  basePlayer.removeAttribute('src');
  playerReady=false;
@@ -164,10 +172,12 @@ function show(n){
  const s=slides[current];
  if(s.dataset.kind==='question'){
   const qIndex=questions.findIndex(q=>q.i===current);
-  s.dataset.timerStarted='';
-  s.querySelectorAll('.option').forEach(o=>{o.disabled=true;o.classList.remove('is-picked')});
+  s.dataset.answered='0';
+  s.dataset.timerStarted='1';
+  s.querySelectorAll('.option').forEach(o=>{o.disabled=false;o.classList.remove('is-picked')});
   preloadQuestionVideos(qIndex);
   refreshQuestionVideoReadiness(qIndex);
+  startTimer(s);
  }else if(s.dataset.kind==='answer'){
   preloadQuestionVideos(answers.findIndex(a=>a.i===current)+1);
  }
@@ -182,7 +192,8 @@ function show(n){
  }
 }
 function chooseOption(q,button){
- if(button.disabled)return;
+ if(q.s.dataset.answered==='1')return;
+ q.s.dataset.answered='1';
  stopTimer();ensureAudio();
  const options=[...q.s.querySelectorAll('.option')];
  options.forEach(o=>{o.disabled=true;o.classList.remove('is-picked')});
@@ -200,13 +211,61 @@ function chooseOption(q,button){
  playMeme(chosenMeme,a.i,right,selectedChoice,correct,level);
 }
 const memeLevelLabels={correct:'CHÍNH XÁC  ·  CHỐT ĐÁP ÁN',mild:'SAI NHẸ  ·  LỆCH MỘT CHI TIẾT',medium:'SAI VỪA  ·  NHẦM MỘT MỐI QUAN HỆ',severe:'SAI XA  ·  QUAY LẠI CĂN CỨ'};
+const timeoutMemes=[
+ {kind:'slow',emoji:'⏳',headline:'Não đang tải… 99%',caption:'Chậm một nhịp để nối nguyên khí thịnh – suy.'},
+ {kind:'brain',emoji:'🧠',headline:'Ba tầng ý cùng chạy!',caption:'Bồi dưỡng · tuyển chọn · vun trồng — não cần thêm băng thông.'},
+ {kind:'slow',emoji:'🐢',headline:'Ý tưởng đến hơi muộn…',caption:'Đang xếp lại chuỗi khoa danh, tước trật và lưu danh.'},
+ {kind:'brain',emoji:'🌀',headline:'Mê cung suy luận!',caption:'Dẫn chứng, lời phỏng đoán và dụng ý giáo huấn đang xoắn vào nhau.'},
+ {kind:'brain',emoji:'🔄',headline:'Hệ thống tư duy quá tải!',caption:'Tư cách · trách nhiệm · cống hiến — cần khởi động lại.'}
+];
+function ensureTimeoutPanel(){
+ let panel=document.getElementById('timeout-meme');
+ if(!panel){
+  panel=document.createElement('div');
+  panel.id='timeout-meme';
+  panel.setAttribute('aria-live','polite');
+  panel.setAttribute('aria-atomic','true');
+  stage.appendChild(panel);
+ }
+ return panel;
+}
+function finishTimeoutMeme(answerSlideIndex,reason){
+ stopPlayerTimers();
+ hideMeme();
+ const target=slides[answerSlideIndex];if(!target)return;
+ const letter=(target.querySelector('.answer-letter')?.textContent||'').replace(/[^A-D]/g,'').slice(-1);
+ const banner=target.querySelector('.response-result');
+ if(banner){
+  banner.textContent=reason==='timeout'?'HẾT THỜI GIAN  ·  ĐÁP ÁN ĐÚNG '+letter:'VIDEO CHƯA PHÁT ĐƯỢC  ·  ĐÁP ÁN ĐÚNG '+letter;
+  banner.classList.remove('is-wrong');
+ }
+ show(answerSlideIndex);
+}
+function showTimeoutMeme(qIndex,answerSlideIndex,reason='timeout'){
+ stopPlayerTimers();
+ pausePlayer();
+ hideMeme();
+ const data=timeoutMemes[qIndex]||timeoutMemes[0];
+ const panel=ensureTimeoutPanel();
+ panel.className='timeout-meme '+data.kind+' active';
+ panel.innerHTML='<div class="timeout-card"><div class="timeout-kicker">'+(reason==='timeout'?'HẾT THỜI GIAN':'VIDEO ĐANG TẢI CHẬM')+'</div><div class="timeout-emoji">'+data.emoji+'</div><div class="timeout-headline">'+data.headline+'</div><div class="timeout-caption">'+data.caption+'</div><div class="timeout-meter"><span></span></div></div>';
+ basePlayer.style.display='none';
+ stage.classList.add('active');
+ stage.setAttribute('aria-hidden','false');
+ memeFinished=true;
+ memeFallback=setTimeout(()=>finishTimeoutMeme(answerSlideIndex,reason),4200);
+}
 function playMeme(meme,answerSlideIndex,right,choice,correct,level){
  stopPlayerTimers();
  if(memeReaction)memeReaction.textContent=memeLevelLabels[level]||memeLevelLabels.severe;
  if(memeCaption)memeCaption.textContent=meme.caption||'Phản ứng cho lựa chọn này';
  if(memeSource)memeSource.textContent='VIDEO TIKTOK NGẮN  ·  '+(meme.creator||'');
  memeStarted=false;memeFinished=false;
- const cached=preloadFrames.get(meme.id);
+ const qIndex=answers.findIndex(a=>a.i===answerSlideIndex);
+ let cached=preloadFrames.get(meme.id);
+ if(cached&&cached.dataset.failed==='1'){
+  cached.src='about:blank';cached.remove();preloadFrames.delete(meme.id);cached=null;
+ }
  if(cached){
   parkActivePlayer();
   basePlayer.style.display='none';
@@ -221,22 +280,26 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
   playerReady=false;
  }
  stage.classList.add('active');stage.setAttribute('aria-hidden','false');
+ const timeoutPanel=document.getElementById('timeout-meme');
+ if(timeoutPanel)timeoutPanel.classList.remove('active');
  player.dataset.answer=String(answerSlideIndex);
  player.dataset.right=right?'1':'0';
  player.dataset.choice=choice;player.dataset.correct=correct;
  player.dataset.level=level;player.dataset.clip=String(meme.clip||3.3);
  if(cached){
-  // The iframe is already loaded and warmed; send play in the same user-selection turn.
+  // The selected clip is already loaded; request unmute and playback immediately.
   postToPlayer('unMute');
   postToPlayer('play');
  }else{
-  // Fallback for a cache miss. The iframe is permitted to autoplay and will be told to play again when ready.
+  // A cache miss is loaded only after the user's click, with autoplay enabled.
   player.src=tikTokPlayerUrl(meme,false);
-  postToPlayer('unMute');
-  postToPlayer('play');
  }
- memeStartGuard=setTimeout(()=>{if(!memeStarted&&!memeFinished){postToPlayer('unMute');postToPlayer('play')}},1500);
- memeFallback=setTimeout(()=>{if(!memeFinished)revealAnswer(answerSlideIndex,right,choice,correct,level)},7500);
+ memeStartGuard=setTimeout(()=>{if(!memeStarted&&!memeFinished){postToPlayer('unMute');postToPlayer('play')}},350);
+ memeFallback=setTimeout(()=>{
+  if(memeFinished)return;
+  if(!memeStarted)showTimeoutMeme(qIndex,answerSlideIndex,'video');
+  else revealAnswer(answerSlideIndex,right,choice,correct,level);
+ },4500);
 }
 function stopPlayerTimers(){
  if(memeFallback){clearTimeout(memeFallback);memeFallback=null}
@@ -271,10 +334,10 @@ window.addEventListener('message',e=>{
   const preloadQ=Number(sourceFrame.dataset.questionIndex);
   if(d.type==='onPlayerReady'){
    sourceFrame.dataset.ready='1';
-   // A muted autoplay warms the remote TikTok player before the player is selected.
+   // TikTok's documented mute command allows a silent warm-up without locking the player muted.
    try{
     sourceFrame.contentWindow.postMessage({type:'mute','x-tiktok-player':true},'*');
-    sourceFrame.contentWindow.postMessage({type:'play','x-tiktok-player':true},'*');
+    setTimeout(()=>sourceFrame.contentWindow?.postMessage({type:'play','x-tiktok-player':true},'*'),0);
    }catch(_){}
    refreshQuestionVideoReadiness(preloadQ);
   }
@@ -285,11 +348,11 @@ window.addEventListener('message',e=>{
    refreshQuestionVideoReadiness(preloadQ);
   }
   if(d.type==='onPlayerError'||d.type==='onError'){
-   const info=d.value||{};
+   const info=d.value&&typeof d.value==='object'?d.value:{};
    const code=Number(info.errorCode??d.errorCode??d.value);
    if(sourceFrame._warmupTimer){clearTimeout(sourceFrame._warmupTimer);sourceFrame._warmupTimer=null}
    if(code===3002){
-    // Autoplay may be blocked by browser policy; the explicit user click will request playback again.
+    // Autoplay policy error is recoverable after the user selects an answer.
     sourceFrame.dataset.ready='1';
     sourceFrame.dataset.autoplayBlocked='1';
    }else{
@@ -324,14 +387,21 @@ window.addEventListener('message',e=>{
   }
  }
  if(d.type==='onPlayerError'||d.type==='onError'){
-  if(memeCaption)memeCaption.textContent='TikTok không phát được video này trong phiên hiện tại.';
-  revealAnswer(idx,right,choice,correct,level);
+  const info=d.value&&typeof d.value==='object'?d.value:{};
+  const code=Number(info.errorCode??d.errorCode??d.value);
+  const qIndex=answers.findIndex(a=>a.i===idx);
+  if(code===3002){
+   // Retry through the visible player after the user gesture; the click path has already requested play.
+   postToPlayer('unMute');postToPlayer('play');
+  }else{
+   showTimeoutMeme(qIndex,idx,'video');
+  }
  }
 });
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
- // Return to the original deck in read-only presentation view, landing on the final slide (14/14).
- const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/view?page=14';
+ // Open the original design in Canva's full-screen presentation route, on slide 14.
+ const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/present?page=14';
  try{
   if(window.opener&&!window.opener.closed){
    window.opener.location.replace(target);
