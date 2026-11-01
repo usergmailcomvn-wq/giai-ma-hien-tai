@@ -110,6 +110,22 @@ html,body,#deck{background:#070402!important;color:#fff0d0!important}
 #meme-reaction{font-size:clamp(10px,1vw,13px);font-weight:950;letter-spacing:.14em;color:#f2cf84}
 #meme-caption{margin-top:5px;font-size:clamp(14px,1.55vw,22px);line-height:1.25;font-weight:850}
 #meme-source{margin-top:5px;font-size:10px;line-height:1.2;letter-spacing:.06em;color:#c5d0c7}
+#timeout-meme{position:absolute;inset:0;z-index:100002;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 35%,rgba(43,74,62,.72),rgba(3,10,9,.97) 72%);color:#f5ecd8;text-align:center}
+#timeout-meme.active{display:flex}
+.timeout-card{width:min(760px,92vw);padding:clamp(24px,5vw,58px);border:1px solid rgba(230,197,127,.65);border-radius:24px;background:linear-gradient(145deg,rgba(23,43,34,.96),rgba(7,17,15,.97));box-shadow:0 20px 70px rgba(0,0,0,.46);overflow:hidden}
+.timeout-kicker{color:#e6c57f;font-size:clamp(10px,1vw,14px);font-weight:900;letter-spacing:.22em}
+.timeout-emoji{font-size:clamp(56px,9vw,112px);line-height:1.2;margin:16px 0;display:inline-block;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
+.timeout-headline{font-family:Georgia,serif;font-weight:800;font-size:clamp(26px,4vw,48px);line-height:1.1;color:#f4e3b6}
+.timeout-caption{margin:14px auto 0;max-width:590px;color:#d2d8cb;font-size:clamp(14px,1.6vw,20px);line-height:1.45}
+.timeout-meter{width:min(420px,80%);height:9px;margin:28px auto 0;border-radius:99px;background:rgba(230,197,127,.18);overflow:hidden}
+.timeout-meter span{display:block;height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#e6c57f,#8cbb9c);animation:timeout-progress 4.2s linear forwards}
+.timeout-meme.slow .timeout-emoji{animation:timeout-bob 1.1s ease-in-out infinite}
+.timeout-meme.brain .timeout-emoji{animation:timeout-spin 2.4s ease-in-out infinite}
+.timeout-meme.brain .timeout-card{animation:timeout-pulse .8s ease-in-out infinite alternate}
+@keyframes timeout-progress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes timeout-bob{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-13px) rotate(5deg)}}
+@keyframes timeout-spin{0%,100%{transform:rotate(-12deg) scale(1)}50%{transform:rotate(12deg) scale(1.08)}}
+@keyframes timeout-pulse{from{border-color:rgba(230,197,127,.45)}to{border-color:rgba(230,197,127,.95)}}
 @media(max-width:640px){#meme-overlay{width:calc(100vw - 20px);bottom:12px;padding:10px 12px;border-radius:12px}#meme-caption{font-size:14px}#meme-source{font-size:9px}}
 .start{background:linear-gradient(135deg,#f9d98a,#ba7d2f)!important;color:#1b1006!important}
 </style></head><body><main id="deck"><section class="slide cover" data-kind="cover">
