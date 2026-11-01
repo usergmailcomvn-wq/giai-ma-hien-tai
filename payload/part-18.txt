@@ -143,6 +143,8 @@ function startTimer(s){
   if(remaining===0){
    tone(660,.18,.13);setTimeout(()=>tone(520,.22,.12),180);
    stopTimer();
+   s.dataset.answered='1';
+   s.querySelectorAll('.option').forEach(button=>{button.disabled=true});
    const qIndex=questions.findIndex(q=>q.s===s);
    const answer=answers[qIndex];
    if(answer)showTimeoutMeme(qIndex,answer.i,'timeout');
@@ -299,7 +301,7 @@ function playMeme(meme,answerSlideIndex,right,choice,correct,level){
   if(memeFinished)return;
   if(!memeStarted)showTimeoutMeme(qIndex,answerSlideIndex,'video');
   else revealAnswer(answerSlideIndex,right,choice,correct,level);
- },4500);
+ },2500);
 }
 function stopPlayerTimers(){
  if(memeFallback){clearTimeout(memeFallback);memeFallback=null}
