@@ -211,6 +211,27 @@ function playInstrumentalScore(level){
  else if(level==='medium')scheduleChord([52,56,59],finalAt,.48,'brass',.055);
  else scheduleChord([45,48,52,57],finalAt,.52,'brass',.075);
 }
+function playTimeoutScore(){
+ const c=ensureAudio();if(!c)return;
+ const start=c.currentTime+.045,beat=60/156;
+ // A purpose-built time-up cue: a brisk clock-like pulse, alternating alert notes,
+ // and a short descending cadence. It is instrumental and distinct from the severe-wrong score.
+ for(let b=0;b<12;b++){
+  const at=start+b*beat;
+  if(b%4===0)drumKick(at,.29);
+  else if(b%4===2)drumSnare(at,.16);
+  drumHat(at,.052,-.16);drumHat(at+beat/2,.045,.17);
+  if(b===0||b===4||b===8)drumCrash(at,.055);
+ }
+ const alarm=[86,82,86,82,84,80,84,80,81,77,81,77,84,80,84,80,86,82,86,82,89,84,89,84];
+ alarm.forEach((m,i)=>{
+  const at=start+i*(beat/2);
+  makeVoice(m,at,.135,'brass',.075,(i%2===0?-.2:.2));
+  if(i%4===0)makeVoice(m-12,at,.22,'pluck',.043,0);
+ });
+ [50,53,57].forEach((m,i)=>makeVoice(m,start+beat*10,.72,'pad',.045,(i-1)*.2));
+ [77,74,69].forEach((m,i)=>makeVoice(m,start+beat*10.5+i*.09,.42,'pluck',.055,(i-1)*.18));
+}
 function tone(freq=880,duration=.11,vol=.08){
  const c=ensureAudio();if(!c||!masterGain)return;
  try{
@@ -306,16 +327,16 @@ function finishFeedback(answerSlideIndex,right,choice,reason='answer'){
 }
 function playMusicFeedback(answerSlideIndex,right,choice,correct,level,reason='answer'){
  stopMusic();feedbackFinished=false;
- const info=levelInfo[level]||levelInfo.severe;
- stage.dataset.level=level;
- if(memeReaction)memeReaction.textContent=reason==='timeout'?'HẾT THỜI GIAN · CÙNG XEM LẠI CĂN CỨ':info.label;
- if(memeCaption)memeCaption.textContent=reason==='timeout'?'Bạn đã hết thời gian. Phần giải đáp sẽ giúp xác định đáp án đúng.':info.caption;
+ const info=reason==='timeout'?{label:'HẾT GIỜ · THỜI GIAN ĐÃ KẾT THÚC',caption:'Đã hết thời gian! Hãy xem đáp án và phần giải thích.',icon:'⏰',source:'NHẠC BÁO HẾT GIỜ · NHỊP ĐẾM NHANH · GIAI ĐIỆU CẢNH BÁO'}:(levelInfo[level]||levelInfo.severe);
+ stage.dataset.level=reason==='timeout'?'timeout':level;
+ if(memeReaction)memeReaction.textContent=info.label;
+ if(memeCaption)memeCaption.textContent=info.caption;
  if(memeSource)memeSource.textContent=info.source+' · NHẠC KHÔNG LỜI';
  if(musicNote)musicNote.textContent=info.icon;
  const visual=stage.querySelector('.music-progress span');
  if(visual){visual.style.animation='none';void visual.offsetWidth;visual.style.animation='music-progress 4.65s linear forwards'}
  stage.classList.add('active');stage.setAttribute('aria-hidden','false');
- playInstrumentalScore(level);
+ if(reason==='timeout')playTimeoutScore();else playInstrumentalScore(level);
  feedbackTimer=setTimeout(()=>finishFeedback(answerSlideIndex,right,choice,reason),4650);
 }
 function showTimeoutFeedback(qIndex,answerSlideIndex){
