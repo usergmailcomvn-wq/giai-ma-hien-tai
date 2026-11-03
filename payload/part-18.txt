@@ -363,7 +363,7 @@ function navigateBackToCanva(){
  const target='https://www.canva.com/design/DAHZ0LDzOXY/oFSlG7N3SZQZUNyR0g25KQ/view?ui=eyJEIjp7IlQiOnsiQSI6IlBCN2ZtSjRmN2ozSFJyNzUifX19';
  const embedded=new URLSearchParams(window.location.search).get('embedded')==='1';
  if(embedded&&window.parent!==window){
-  window.parent.postMessage({type:'HIEN_TAI_GAME_FINISHED'},'*');
+  window.parent.postMessage({type:'HIEN_TAI_GAME_FINISHED'},window.location.origin);
   return;
  }
  try{
