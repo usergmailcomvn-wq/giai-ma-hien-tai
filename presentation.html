@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080b12">
+<title>Hiền tài là nguyên khí của quốc gia | Trình chiếu</title>
+<style>
+:root{color-scheme:dark;--gold:#e8c57c;--cream:#f4ead5;--ink:#080b12;--panel:#111723}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0}
+body{display:flex;flex-direction:column;overflow:hidden;background:var(--ink);color:var(--cream);font-family:system-ui,"Segoe UI",Arial,sans-serif}
+.topbar{height:58px;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 18px;background:linear-gradient(90deg,#101722,#17130d);border-bottom:1px solid rgba(232,197,124,.45)}
+.brand{min-width:0;display:flex;flex-direction:column;gap:2px}
+.brand strong{font-family:Georgia,serif;font-size:clamp(12px,1.15vw,17px);letter-spacing:.045em;color:#f4e4c1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{font-size:10px;letter-spacing:.13em;color:#c7b58f}
+.action{flex:none;border:1px solid rgba(255,225,159,.75);border-radius:11px;padding:10px 16px;background:linear-gradient(140deg,#f1d58f,#b88942);color:#1b1a13;font-size:12px;font-weight:900;letter-spacing:.08em;cursor:pointer;box-shadow:0 5px 18px rgba(0,0,0,.25)}
+.action:hover{filter:brightness(1.08)}
+.action:focus-visible,.close-game:focus-visible{outline:3px solid #fff0bb;outline-offset:3px}
+#deck-stage{flex:1;min-height:0;display:grid;place-items:center;overflow:hidden;background:#080b12}
+#deck-shell{position:relative;width:min(100vw,calc((100dvh - 58px)*16/9));height:min(calc(100vw*9/16),calc(100dvh - 58px));aspect-ratio:16/9;background:#080b12}
+#canva-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#080b12}
+#game-layer{display:none;position:fixed;inset:0;z-index:1000;background:#050302}
+#game-layer.active{display:block}
+#game-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#050302}
+.close-game{position:absolute;z-index:1002;top:12px;right:12px;border:1px solid rgba(239,207,143,.75);border-radius:10px;padding:10px 13px;background:rgba(10,18,17,.9);color:#f4e4c1;font-size:11px;font-weight:850;letter-spacing:.06em;cursor:pointer;backdrop-filter:blur(8px)}
+@media(max-width:560px){
+ .topbar{height:54px;min-height:54px;padding:0 10px;gap:8px}
+ .brand strong{font-size:11px}
+ .brand span{font-size:8px}
+ .action{padding:9px 10px;font-size:10px}
+ #deck-shell{width:min(100vw,calc((100dvh - 54px)*16/9));height:min(calc(100vw*9/16),calc(100dvh - 54px))}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="brand">
+  <strong>HIỀN TÀI LÀ NGUYÊN KHÍ CỦA QUỐC GIA</strong>
+  <span>TRÌNH CHIẾU CANVA · 16 TRANG</span>
+ </div>
+ <button class="action" id="launch-game" type="button">MỞ TRÒ CHƠI</button>
+</header>
+<main id="deck-stage">
+ <div id="deck-shell">
+  <iframe id="canva-frame" title="Bài trình chiếu Hiền tài là nguyên khí của quốc gia" loading="eager" src="https://www.canva.com/design/DAHZ0LDzOXY/oFSlG7N3SZQZUNyR0g25KQ/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+ </div>
+</main>
+<section id="game-layer" aria-hidden="true">
+ <button class="close-game" id="close-game" type="button">QUAY LẠI TRÌNH CHIẾU</button>
+ <iframe id="game-frame" title="Trò chơi tương tác" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+</section>
+<script>
+(()=>{
+ const layer=document.getElementById('game-layer');
+ const gameFrame=document.getElementById('game-frame');
+ const launchButton=document.getElementById('launch-game');
+ function openGame(){
+  layer.classList.add('active');
+  layer.setAttribute('aria-hidden','false');
+  if(gameFrame.getAttribute('src')!=='./index.html?embedded=1'){
+   gameFrame.src='./index.html?embedded=1';
+  }
+ }
+ function closeGame(){
+  layer.classList.remove('active');
+  layer.setAttribute('aria-hidden','true');
+  gameFrame.src='about:blank';
+  launchButton.focus();
+ }
+ launchButton.addEventListener('click',openGame);
+ document.getElementById('close-game').addEventListener('click',closeGame);
+ window.addEventListener('message',(event)=>{
+  if(event.origin!==window.location.origin)return;
+  if(event.source!==gameFrame.contentWindow)return;
+  if(event.data&&event.data.type==='HIEN_TAI_GAME_FINISHED')closeGame();
+ });
+})();
+</script>
+</body>
+</html>
