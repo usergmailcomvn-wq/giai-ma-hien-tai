@@ -360,21 +360,9 @@ function chooseOption(q,button){
 }
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
- // Preserve the original Canva presentation tab and its current slide.
- try{
-  if(window.opener&&!window.opener.closed){
-   window.opener.focus();
-   window.close();
-   return;
-  }
- }catch(e){}
- // If the game replaced the presentation in the same tab, restore history.
- if(window.history.length>1){
-  window.history.back();
-  return;
- }
- // Last-resort fallback: clean view link for this Canva presentation.
- window.location.replace('https://www.canva.com/d/Z8mlOpFWk3M1uHY');
+ const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/edit?ui=eyJEIjp7IlQiOnsiQSI6IlBCN2ZtSjRmN2ozSFJyNzUifX19';
+ try{if(window.opener&&!window.opener.closed){window.opener.location.replace(target);window.close();return}}catch(e){}
+ window.location.replace(target);
 }
 function next(){
  const s=slides[current];
