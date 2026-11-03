@@ -54,7 +54,11 @@ body{display:flex;flex-direction:column;overflow:hidden;background:var(--ink);co
 (()=>{
  const layer=document.getElementById('game-layer');
  const gameFrame=document.getElementById('game-frame');
+ const canvaFrame=document.getElementById('canva-frame');
  const launchButton=document.getElementById('launch-game');
+ const normalCanvaUrl='https://www.canva.com/design/DAHZ0LDzOXY/oFSlG7N3SZQZUNyR0g25KQ/view?embed';
+ const closingSlideUrl='https://www.canva.com/design/DAHZ0LDzOXY/oFSlG7N3SZQZUNyR0g25KQ/view?embed&ui=eyJEIjp7IlQiOnsiQSI6IlBCN2ZtSjRmN2ozSFJyNzUifX19';
+ const launchImmediately=new URLSearchParams(window.location.search).get('launch')==='1';
  function openGame(){
   layer.classList.add('active');
   layer.setAttribute('aria-hidden','false');
@@ -62,19 +66,30 @@ body{display:flex;flex-direction:column;overflow:hidden;background:var(--ink);co
    gameFrame.src='./index.html?embedded=1';
   }
  }
- function closeGame(){
+ function closeGame(showClosingSlide=false){
   layer.classList.remove('active');
   layer.setAttribute('aria-hidden','true');
   gameFrame.src='about:blank';
+  if(showClosingSlide){
+   canvaFrame.src=closingSlideUrl;
+   launchButton.textContent='XEM LẠI BÀI TRÌNH CHIẾU';
+  }else{
+   if(!canvaFrame.src||canvaFrame.src==='about:blank')canvaFrame.src=normalCanvaUrl;
+   launchButton.textContent='MỞ TRÒ CHƠI';
+  }
   launchButton.focus();
  }
  launchButton.addEventListener('click',openGame);
- document.getElementById('close-game').addEventListener('click',closeGame);
+ document.getElementById('close-game').addEventListener('click',()=>closeGame(false));
  window.addEventListener('message',(event)=>{
   if(event.origin!==window.location.origin)return;
   if(event.source!==gameFrame.contentWindow)return;
-  if(event.data&&event.data.type==='HIEN_TAI_GAME_FINISHED')closeGame();
+  if(event.data&&event.data.type==='HIEN_TAI_GAME_FINISHED')closeGame(true);
  });
+ if(launchImmediately){
+  canvaFrame.src='about:blank';
+  openGame();
+ }
 })();
 </script>
 </body>
