@@ -360,8 +360,19 @@ function chooseOption(q,button){
 }
 questions.forEach(q=>q.s.querySelectorAll('.option').forEach(btn=>btn.addEventListener('click',()=>chooseOption(q,btn))));
 function navigateBackToCanva(){
- const target='https://www.canva.com/design/DAHZrugfPaA/IJksAWSk4X0Hy_v-o8St8Q/edit?ui=eyJEIjp7IlQiOnsiQSI6IlBCN2ZtSjRmN2ozSFJyNzUifX19';
- try{if(window.opener&&!window.opener.closed){window.opener.location.replace(target);window.close();return}}catch(e){}
+ const target='https://www.canva.com/design/DAHZ0LDzOXY/oFSlG7N3SZQZUNyR0g25KQ/view';
+ const embedded=new URLSearchParams(window.location.search).get('embedded')==='1';
+ if(embedded&&window.parent!==window){
+  window.parent.postMessage({type:'HIEN_TAI_GAME_FINISHED'},'*');
+  return;
+ }
+ try{
+  if(window.opener&&!window.opener.closed){
+   try{window.opener.focus()}catch(e){}
+   window.close();
+   if(window.closed)return;
+  }
+ }catch(e){}
  window.location.replace(target);
 }
 function next(){
@@ -405,7 +416,7 @@ function beginPresentation(event){
  if(riverSound){riverSound.currentTime=0;startRiverAudio()}
  if(introTimer){clearTimeout(introTimer);introTimer=null}
  show(questions[0]?.i??1);
- if(!document.fullscreenElement){const request=document.documentElement.requestFullscreen?.();if(request&&typeof request.catch==='function')request.catch(()=>{})}
+ if(window.parent===window&&!document.fullscreenElement){const request=document.documentElement.requestFullscreen?.();if(request&&typeof request.catch==='function')request.catch(()=>{})}
 }
 if(startButton){
  startButton.type='button';startButton.disabled=false;startButton.style.position='relative';startButton.style.zIndex='1001';startButton.style.pointerEvents='auto';
